@@ -1,0 +1,91 @@
+# ============================================================
+# viewer-school — .gitignore
+# ============================================================
+# Згенеровані файли (не додаємо в репо)
+viewer.html
+viewer.html.tmp
+viewer_assets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Логи сервера
+viewer_server.log
+viewer_server.prev.log
+viewer_server.port
+
+# Тимчасові/тестові артефакти
+_tx_*.py
+_sv_*.py
+_sv_*.html
+_sv_*.png
+_tx_body.xml
+_tx5_out.txt
+_tx5.png
+_tx5.py
+_replace_proj_path.py
+
+# Навчальні матеріали (PDF, PPTX, XLSX тощо)
+*.pdf
+*.ppt
+*.pptx
+*.xls
+*.xlsx
+*.csv
+*.jar
+*.mp4
+*.webm
+*.avi
+*.mov
+*.mp3
+*.wav
+*.gif
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.svg
+*.bmp
+*.ico
+
+# Навчальні папки (предмети)
+01 Ukr mova/
+02 Ukr lit/
+03 Zar lit/
+04 English/
+05 Istoria Ukraine/
+06 Vsesvitnya Istoria/
+07 Matematuka/
+08 Biologia/
+09 Geographia/
+10 Fizuka and astronomy/
+11 Informatika/
+12 Mystetstvo/
+13 Ximia/
+
+# Конфіденційні дані
+План контрольних робіт.md
+progect-viewer-school/
+
+# IDE / редактори
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Windows
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+._*
