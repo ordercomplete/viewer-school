@@ -138,7 +138,7 @@ def main() -> int:
         print("Усі Python-залежності вже встановлені.")
 
     print("Стан:")
-    print(f"  обов'язкові: " + (", ".join(REQUIRED) or "—") +
+    print("  обов'язкові: " + (", ".join(REQUIRED) or "—") +
           (" — ок" if not missing_req else " — ВІДСУТНІ"))
     print(f"  опційні: {', '.join(OPTIONAL)}" +
           (" — ок" if not missing_opt else

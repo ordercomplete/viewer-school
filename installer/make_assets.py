@@ -37,6 +37,7 @@ def gradient(size: tuple[int, int], top: tuple[int, int, int],
     w, h = size
     img = Image.new("RGB", size)
     px = img.load()
+    assert px is not None
     for y in range(h):
         k = y / max(1, h - 1)
         color = tuple(int(top[i] + (bottom[i] - top[i]) * k) for i in range(3))
@@ -70,7 +71,7 @@ def app_icon(size: int) -> Image.Image:
     dr.rounded_rectangle([pad, pad, size * ss - pad, size * ss - pad],
                          radius=size * ss * 0.22, fill=NAVY)
     draw_sheet(dr, size * ss)
-    return img.resize((size, size), Image.LANCZOS)
+    return img.resize((size, size), Image.Resampling.LANCZOS)
 
 
 def wrap(text: str, fnt: ImageFont.FreeTypeFont, max_w: int) -> list[str]:
@@ -94,7 +95,7 @@ def wizard_image() -> Image.Image:
     dr = ImageDraw.Draw(img)
 
     # Аркуш-логотип
-    logo = app_icon(96).resize((96, 96), Image.LANCZOS)
+    logo = app_icon(96).resize((96, 96), Image.Resampling.LANCZOS)
     img.alpha_composite(logo, (int(w / 2 - 48), 58))
 
     fb48 = font(FONT_BOLD, 26)
@@ -129,7 +130,7 @@ def wizard_small() -> Image.Image:
     w, h = 150, 57
     img = Image.new("RGBA", (w, h), NAVY + (255,))
     dr = ImageDraw.Draw(img)
-    logo = app_icon(48).resize((40, 40), Image.LANCZOS)
+    logo = app_icon(48).resize((40, 40), Image.Resampling.LANCZOS)
     img.alpha_composite(logo, (6, 9))
     fb = font(FONT_BOLD, 13)
     fr = font(FONT_REG, 10)

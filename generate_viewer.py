@@ -114,22 +114,6 @@ def _inline_markdown(text: str) -> str:
     return text
 
 
-def _table(rows: list[list[str]], head: bool = False) -> str:
-    """Матриця рядків → HTML-таблиця."""
-    out = ["<table class=\"grid\">"]
-    for i, row in enumerate(rows):
-        cells = []
-        for value in row:
-            tag = "th" if (head and i == 0) else "td"
-            cells.append(f"<{tag}>{_cell_text(value)}</{tag}>")
-        out.append("<tr>" + "".join(cells) + "</tr>")
-    out.append("</table>")
-    return "".join(out)
-
-
-def _cell_text(value: str) -> str:
-    """Комірка таблиці → безпечний текст."""
-    return html.escape(value or "")
 def rel_url(path: Path) -> str:
     """Відносний URL файлу від папки progect-viewer-school.
 
