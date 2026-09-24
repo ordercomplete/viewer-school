@@ -1,62 +1,21 @@
-# Інсталятор viewer
+MIT License
 
-Використайте Inno Setup Compiler (`iscc`) для створення `.exe`:
+Copyright (c) 2026 FileViewer-for-students-and-teachers
 
-```powershell
-iscc.exe viewer_setup.iss
-```
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-## Скрипт `viewer_setup.iss` робить наступне:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-1. **Перевіряє наявність Python 3.8+** — якщо відсутній, попереджає і пропонує встановити.
-
-2. **Сторінка з умовами використання:**
-   ```
-   Ця програма призначена для дистанційного заочного навчання старших класів середньої школи.
-   Використовується безкоштовно як є, без претензій.
-   ```
-
-3. **Сторінка попередження про необхідне ПЗ:**
-   ```
-   - Python 3.8+
-   - openpyxl
-   - python-pptx
-   - Pillow (PIL)
-   
-   Якщо компоненти відсутні, інсталятор спробує їх встановити через pip.
-   ```
-
-4. **Після згоди:**
-   - Спочатку виконує `pip install openpyxl python-pptx Pillow --quiet`.
-   - Потім копіює файли програми до обраної папки.
-
-5. **Файли, що копіюються:**
-   - `generate_viewer.py`
-   - `viewer_server.py`
-   - `viewer_probe.py`
-   - `start_viewer.bat`
-   - `viewer.html` (шаблон)
-   - `viewer_help.md`
-   - `installer/__init__.py`
-   - папка `viewer_assets/` (якщо існує)
-
-6. **Ярлики:**
-   - «📚 Перегляд матеріалів» → `start_viewer.bat`
-   - «Згенерувати для теки…» → `cmd /k generate_driver.py "%~dp0"` (або через python.exe)
-
-7. **Деінсталятор** видаляє ярлики, файли залишаються на диску (користувач може інсталювати в `Las Папку навчання`).
-
----
-
-## Як зібрати:
-
-```powershell
-# Встановіть Inno Setup Compiler (https://jrsoftware.org/isdl.php)
-iscc.exe "J:\328_11-D\I semestr\installer\viewer_setup.iss"
-```
-
-Після компіляції у папці `Output` з'явиться файл `ViewerSchoolSetup.exe`.
-
-</content>
-<parameter=filePath>
-J:\328_11-D\I semestr\installer\README.md
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

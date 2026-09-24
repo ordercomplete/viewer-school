@@ -1,0 +1,15 @@
+# Viewer-for-School — залежності генератора viewer.html
+# Встановлення: python -m pip install --user -r requirements.txt
+# (те саме робить install_deps.py — викликається інсталятором і start_viewer.bat)
+
+# Обов'язкова: імпортується на рівні модуля в generate_viewer.py
+markdown>=3.4
+
+# Опційні: розширюють прев'ю, без них працюють фолбеки
+openpyxl>=3.1         # стилізовані таблиці .xlsx (інакше — stdlib-таблиця)
+python-pptx>=0.6.21   # текст слайдів .pptx (інакше — картка «Відкрити окремо»)
+
+# Поза pip — встановлюються окремо, не пакуємо:
+#   Microsoft Office (PowerPoint / Word) — JPG-слайди .pptx та PDF для .docx;
+#   ffmpeg — конвертація .avi → .mp4 для відтворення у браузері
+#            (https://ffmpeg.org/download.html або winget install Gyan.FFmpeg.Essentials)

@@ -27,15 +27,28 @@ from typing import Any, cast
 from urllib.parse import unquote, urlparse
 
 cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding="utf-8")
+# stderr теж у UTF-8: інакше повідомлення про помилки у перенаправлених
+# виводах (файл/пайп) виходять «кракозябрами» через кодову сторінку консолі.
+try:
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding="utf-8")
+except (AttributeError, ValueError):
+    pass
 
-BASE = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parent   # тека зі скриптами додатка
 OUT_NAME = "viewer.html"
-GEN_SCRIPT = BASE / "generate_viewer.py"
-PORT_FILE = BASE / "viewer_server.port"      # файл із фактичним портом
+GEN_SCRIPT = SCRIPT_DIR / "generate_viewer.py"
+# Тека матеріалів, яку роздає сервер: типово — тека скриптів,
+# змінюється аргументом --root (ярлик «Згенерувати для теки…»).
+BASE = SCRIPT_DIR
 DEFAULT_PORT = 8321
 PORT_TRIES = 9
 GEN_TIMEOUT_S = 1800                          # максимум на генерацію
 HOST = "127.0.0.1"
+
+
+def port_file() -> Path:
+    """Файл із фактичним портом — у теці матеріалів (BASE)."""
+    return BASE / "viewer_server.port"
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -97,7 +110,10 @@ def find_running_server(start: int, tries: int = PORT_TRIES) -> int | None:
         except (urllib.error.URLError, OSError, ValueError):
             continue
         if isinstance(data, dict) and data.get("server") == "viewer_server":
-            return port
+            found_root = data.get("root")
+            # «свій» сервер — той, що роздає саму цю теку
+            if found_root in (None, "", str(BASE)):
+                return port
     return None
 
 
@@ -133,7 +149,7 @@ def run_generator() -> dict[str, Any]:
     started = time.time()
     try:
         proc = subprocess.run(
-            [sys.executable, str(GEN_SCRIPT)],
+            [sys.executable, str(GEN_SCRIPT), str(BASE)],
             cwd=str(BASE), capture_output=True, timeout=GEN_TIMEOUT_S,
             check=False,
         )
@@ -160,7 +176,7 @@ def run_generator() -> dict[str, Any]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ViewerServer/1.0"
+    server_version = "Viewer-for-School/1.1"
     protocol_version = "HTTP/1.1"
 
     # ------------------------------------------------------------- утиліти
@@ -221,6 +237,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json({
                 "ok": True,
                 "server": "viewer_server",
+                "root": str(BASE),
                 "port": PORT_ACTUAL,
                 "pageExists": st is not None,
                 "pageTime": int(st.st_mtime) if st else 0,
@@ -353,9 +370,10 @@ def guess_mime(path: Path) -> str:
     return MIME.get(path.suffix.lower(), "application/octet-stream")
 
 
-def parse_args() -> tuple[int, bool]:
+def parse_args() -> tuple[int, bool, str]:
     port = DEFAULT_PORT
     open_browser = False
+    root = ""
     argv = sys.argv[1:]
     i = 0
     while i < len(argv):
@@ -372,21 +390,37 @@ def parse_args() -> tuple[int, bool]:
             open_browser = True
             i += 1
             continue
+        if arg == "--root" and i + 1 < len(argv):
+            root = argv[i + 1]
+            i += 2
+            continue
+        if arg.startswith("--root="):
+            root = arg.split("=", 1)[1]
+            i += 1
+            continue
         i += 1
-    return port, open_browser
+    return port, open_browser, root
 
 
 def main() -> int:
-    global PORT_ACTUAL
-    port, open_browser = parse_args()
+    global PORT_ACTUAL, BASE
+    port, open_browser, root = parse_args()
+    if root:
+        # strip('"') прибирає зайву лапку з "...\" (cmd екранує завершальний бекслеш)
+        candidate = Path(root.strip().rstrip('"')).expanduser()
+        if not candidate.is_dir():
+            print(f"ПОМИЛКА: теку не знайдено: {candidate}", file=sys.stderr)
+            return 1
+        BASE = candidate.resolve()
     if not GEN_SCRIPT.is_file():
         print(f"ПОМИЛКА: не знайдено {GEN_SCRIPT}", file=sys.stderr)
         return 1
+    print(f"Тека матеріалів: {BASE}", flush=True)
 
     already = find_running_server(port)
     if already is not None:
         url = f"http://{HOST}:{already}/{OUT_NAME}"
-        PORT_FILE.write_text(str(already) + "\n", encoding="ascii")
+        port_file().write_text(str(already) + "\n", encoding="ascii")
         print(f"Сервер уже працює на порту {already}: {url}", flush=True)
         if open_browser:
             import webbrowser
@@ -397,7 +431,7 @@ def main() -> int:
     PORT_ACTUAL = port
     httpd = ThreadingHTTPServer((HOST, port), Handler)
     httpd.daemon_threads = True
-    PORT_FILE.write_text(str(port) + "\n", encoding="ascii")
+    port_file().write_text(str(port) + "\n", encoding="ascii")
     owns_port_file = True       # цей файл створили ми — при виході приберемо
 
     url = f"http://{HOST}:{port}/{OUT_NAME}"
@@ -418,8 +452,8 @@ def main() -> int:
         httpd.server_close()
         try:
             if owns_port_file and \
-                    PORT_FILE.read_text(encoding="ascii").strip() == str(port):
-                PORT_FILE.unlink()
+                    port_file().read_text(encoding="ascii").strip() == str(port):
+                port_file().unlink()
         except OSError:
             pass
     return 0

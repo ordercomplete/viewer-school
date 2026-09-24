@@ -23,20 +23,45 @@ from typing import cast, Any
 from urllib.parse import quote
 
 cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding="utf-8")
+try:                                  # stderr у UTF-8 — щоб помилки не «кракозябрило»
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding="utf-8")
+except (AttributeError, ValueError):
+    pass
 
-BASE = Path(r"J:\328_11-D\I semestr")
+
+def resolve_base() -> Path:
+    """Тека матеріалів: аргумент запуску → тека скриптів.
+
+    Пріоритет:
+      1) перший аргумент-каталог — `python generate_viewer.py "<тека>"`;
+      2) тека, у якій лежить сам скрипт (портативне встановлення).
+    Типово обидва варіанти збігаються — генерація «у поточній теці».
+    """
+    for arg in sys.argv[1:]:
+        if arg.startswith("-"):
+            continue                       # --prewarm тощо
+        # strip('"') прибирає зайву лапку з "...\" (.cmd екранує завершальний
+        # бекслеш) — інакше Path рахує такий шлях неіснуючим
+        candidate = Path(arg.strip().rstrip('"')).expanduser()
+        if candidate.is_dir():
+            return candidate.resolve()
+    return Path(__file__).resolve().parent
+
+
+BASE = resolve_base()
 OUT_NAME = "viewer.html"
-EXCLUDE = {OUT_NAME}  # не включати саму сторінку в дерево
 EXCLUDE_FILES = {"generate_viewer.py", "start_viewer.bat",
                  "viewer_server.py", "viewer_probe.py",
-                 OUT_NAME + ".tmp"}   # службові файли
+                 "install_deps.py", "generate_for.bat",
+                 "requirements.txt", "LICENSE.txt", "VERSION",
+                 "INSTALLER_PLAN.md",
+                 OUT_NAME, OUT_NAME + ".tmp"}   # службові файли
 EXCLUDE_PREFIXES = ("viewer_server.",)   # port/log — і будь-які ротації
 TEMP_PREFIX = "_"  # тимчасові/тестові артефакти не показуємо в дереві
 ASSETS = BASE / "viewer_assets"  # зображення pptx/docx, конвертовані avi
 
-# ---------------------------------------------------------------- зчитування viewer_help.md → HELP_HTML (Крок 1A)
-HELP_MD_PATH = BASE / "viewer_help.md"
-HELP_HTML = ""  # заповнюється у main() після визначення _md_to_html
+# ---------------------------------------------------------------- текст опису
+HELP_MD_PATH = BASE / "viewer_help.md"   # вставляється у вітальну сторінку
 
 # ---------------------------------------------------------------- утиліти
 
@@ -66,104 +91,6 @@ KNOWN_PREVIEW_EXTS = {
 
 def icon_for(name: str) -> str:
     return ICONS.get(Path(name).suffix.lower(), "📄")
-
-
-def _md_to_html(md_text: str) -> str:
-    """Конвертує Markdown-текст у HTML (просто, без зовнішніх бібліотек).
-    
-    Підтримує: заголовки, параграфи, списки, таблиці, жирний/курсив, код, посилання.
-    """
-    import re as _re
-    
-    lines = md_text.splitlines()
-    out: list[str] = []
-    i = 0
-    n = len(lines)
-    
-    def esc(text: str) -> str:
-        return html.escape(text)
-    
-    while i < n:
-        line = lines[i]
-        stripped = line.strip()
-        
-        # Порожній рядок — пропускаємо (роздільник параграфів)
-        if not stripped:
-            i += 1
-            continue
-        
-        # Заголовки # ##
-        m = _re.match(r'^(#{1,3})\s+(.+)', stripped)
-        if m:
-            level = len(m.group(1))
-            content = _inline_markdown(m.group(2))
-            out.append(f"<h{level}>{content}</h{level}>")
-            i += 1
-            continue
-        
-        # Таблиця
-        if _re.search(r'\|', stripped) and _re.match(r'^[\s\-|:]+$', lines[i+1].strip() if i+1 < n else ''):
-            table_lines: list[str] = []
-            # Збираємо рядки таблиці до тих пір, поки є |
-            while i < n and _re.search(r'\|', lines[i].strip()):
-                table_lines.append(_re.sub(r'^\s*\|?\s*|\s*\|?\s*$', '', lines[i].strip()))
-                i += 1
-            # Пропускаємо рядок-розділювач
-            if i < n and _re.match(r'^[\s\-|:]+$', lines[i].strip()):
-                i += 1
-            # Генеруємо таблицю
-            rows_html = []
-            for tl in table_lines:
-                cells = [c.strip() for c in tl.split('|')]
-                rows_html.append(cells)
-            if rows_html:
-                out.append(_table(rows_html, head=(i == 0 or True)))
-            continue
-        
-        # Збираємо блок: списки або параграф
-        block_lines: list[str] = []
-        in_list = False
-        list_type: str | None = None
-        
-        # Перевірка на початок списку
-        if _re.match(r'^[-*+]\s', stripped) or _re.match(r'^\d+\.\s', stripped):
-            in_list = True
-            list_type = 'ol' if _re.match(r'^\d+\.\s', stripped) else 'ul'
-            block_lines.append(stripped)
-            i += 1
-            # Продовжуємо збирати пункти списку
-            while i < n:
-                nxt = lines[i].strip()
-                if not nxt:
-                    i += 1
-                    continue
-                if _re.match(r'^[-*+]\s', nxt) or _re.match(r'^\d+\.\s', nxt):
-                    block_lines.append(nxt)
-                    i += 1
-                else:
-                    break
-        else:
-            # Параграф — збираємо всі сусідні непорожні рядки
-            block_lines.append(stripped)
-            i += 1
-            while i < n and lines[i].strip() and not _re.match(r'^#{1,3}\s', lines[i].strip()) and not _re.match(r'^[-*+]\s', lines[i].strip()) and not _re.match(r'^\d+\.\s', lines[i].strip()):
-                if not _re.match(r'^[\s\-|:]+$', lines[i].strip()):  # не таблиця
-                    block_lines.append(lines[i].strip())
-                i += 1
-        
-        # Генеруємо HTML для блоку
-        if in_list:
-            items = []
-            for bl in block_lines:
-                content = _inline_markdown(bl)
-                items.append(f"<li>{content}</li>")
-            tag = "ol" if list_type == "ol" else "ul"
-            out.append(f"<{tag}>" + "".join(items) + f"</{tag}>")
-        else:
-            content = _inline_markdown(" ".join(block_lines))
-            out.append(f"<p>{content}</p>")
-    
-    return "\n".join(out)
 
 
 def _inline_markdown(text: str) -> str:
@@ -1083,7 +1010,7 @@ def avi_video_card(path: Path) -> str:
 def welcome_doc() -> str:
     """Генерує вітальну сторінку з поясненням і покажчиком viewer_help.md."""
     # Спроба завантажити viewer_help.md з диска
-    help_md_path = BASE / "viewer_help.md"
+    help_md_path = HELP_MD_PATH
     help_html = ""
     if help_md_path.exists():
         try:
@@ -1096,7 +1023,7 @@ def welcome_doc() -> str:
     return wrap_doc("Ласкаво просимо", f"""
     <div class="card">
       <div class="card-icon">📚</div>
-      <h2>Перегляд навчальних матеріалів 11-Д</h2>
+      <h2>Viewer-for-School — навчальні матеріали 11-Д</h2>
       <p>Оберіть файл зліва у дереві — його вміст відкриється у цьому фреймі.</p>
       <ul>
         <li>📝 <b>.md</b> — рендериться з форматуванням;</li>
@@ -1220,7 +1147,7 @@ def build_tree(base: Path):
                             key=lambda p: (p.is_file(), p.name.lower())):
             (dirs if child.is_dir() else items).append(child)
         for d in dirs:
-            if d.name in EXCLUDE or d.name == "viewer_assets" \
+            if d.name == "viewer_assets" \
                     or d.name.startswith(".") or d.name == "__pycache__" \
                     or d.name.startswith(TEMP_PREFIX):
                 continue
@@ -1356,18 +1283,17 @@ def build_tree(base: Path):
 
 # ---------------------------------------------------------------- HTML-шаблон
 
-def make_html(tree: dict, previews: dict, total_files: int, help_html: str = "") -> str:
+def make_html(tree: dict, previews: dict, total_files: int) -> str:
     tree_json = json.dumps(tree, ensure_ascii=False).replace("</", "<\\/")
     prev_json = json.dumps(previews, ensure_ascii=False).replace("</", "<\\/")
     welcome = json.dumps(welcome_doc(), ensure_ascii=False).replace("</", "<\\/")
-    # help_html — просто HTML-рядок, без JSON-кодування
-    help_js = help_html
+    root_js = json.dumps(str(BASE), ensure_ascii=False).replace("</", "<\\/")
 
     return f"""<!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="utf-8">
-<title>11-Д — Перегляд матеріалів</title>
+<title>Viewer-for-School · 11-Д — Перегляд матеріалів</title>
 <style>
   * {{ box-sizing: border-box; }}
   :root {{
@@ -1434,7 +1360,7 @@ def make_html(tree: dict, previews: dict, total_files: int, help_html: str = "")
 </head>
 <body>
 <header>
-  <h1>📚 11-Д · Навчальні матеріали · 2026–2027</h1>
+  <h1>📚 Viewer-for-School · Навчальні матеріали</h1>
   <input id="search" type="search" placeholder="Пошук файлу…">
   <span class="actions">
     <button id="btnExpand" type="button" title="Розгорнути всі папки">📂 Розгорнути все</button>
@@ -1603,6 +1529,10 @@ splitEl.addEventListener('pointerdown', (e) => {{
   splitEl.addEventListener('pointercancel', up);
 }});
 
+// ---------------------------- початкова сторінка (вона ж — сторінка опису)
+const WELCOME_HTML = {welcome};
+const PV_ROOT = {root_js};
+
 // ---------------------------------------- «Оновити файли» (перезапуск генератора)
 const regBtn = document.getElementById('btnRegen');
 const regMsg = document.getElementById('regMsg');
@@ -1625,7 +1555,9 @@ async function findServer() {{
       const r = await fetch(base + '/api/status', {{ cache: 'no-store' }});
       if (r.ok) {{
         const d = await r.json();
-        if (d && d.ok) return base;
+        // беремо лише «свій» сервер — той, що роздає саму цю теку
+        if (d && d.ok &&
+            (!d.root || d.root.toLowerCase() === PV_ROOT.toLowerCase())) return base;
       }}
     }} catch (e) {{ /* порт вільний — пробуємо наступний */ }}
   }}
@@ -1663,7 +1595,7 @@ regBtn.addEventListener('click', regen);
       : '🟢 сервер активний');
 }})();
 
-frame.srcdoc = {welcome};
+frame.srcdoc = WELCOME_HTML;
 
 // Синхронізація теми iframe з батьком (після завантаження iframe)
 function syncIframeTheme() {{
@@ -1688,38 +1620,13 @@ setTimeout(syncIframeTheme, 100);
 // Позначаємо, що батьківський документ підтримує прямий доступ до теми
 document.MUTATION_OBSERVER_SUPPORTED = true;
 
-// ---------------------------------------- кнопки «Опис» і «Тема в прев'ю» (Кроки 1D + 1E)
+// ---------------------------------------- кнопки «Опис» і «Тема в прев'ю»
 document.getElementById('btnHelp').addEventListener('click', () => {{
-  // Виводимо опис у viewer iframe (дерево залишається видимим)
-  // Тема береться з поточної батьківської теми
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const helpTemplate = `<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8">
-<style>
-  :root {{ --p-bg: #fdfdfd; --p-fg: #222; --p-h: #1a3a6b; --p-line: #b9c6da;
-          --p-th: #e8eef8; --p-mdth: #ffe9c7; --p-code: #f0f2f6;
-          --p-card: #fff; --p-note-fg: #8a5a00; --p-note-bg: #fff6e0;
-          --p-hint: #777; --p-link: #0b5cad; }}
-  html[data-theme="dark"] {{ --p-bg: #14181f; --p-fg: #d7dde6; --p-h: #9db8e8; --p-line: #2c3547;
-          --p-th: #232c3d; --p-mdth: #4a3a1e; --p-code: #232b3d;
-          --p-card: #1c2230; --p-note-fg: #e8b64c; --p-note-bg: #2c2417;
-          --p-hint: #9aa3b2; --p-link: #7db3ff; }}
-  body {{ font-family: 'Segoe UI', sans-serif; margin: 0; padding: 24px;
-          background: var(--p-bg); color: var(--p-fg); line-height: 1.6; }}
-  h1, h2, h3 {{ color: var(--p-h); }}
-  table {{ border-collapse: collapse; margin: 12px 0; width: 100%; }}
-  th, td {{ border: 1px solid var(--p-line); padding: 6px 10px; text-align: left; font-size: 14px; }}
-  th {{ background: var(--p-th); }}
-  .md table th {{ background: var(--p-mdth); }}
-  code, pre {{ background: var(--p-code); padding: 2px 5px; border-radius: 4px;
-              font-family: Consolas, monospace; }}
-  pre {{ padding: 12px; overflow-x: auto; }}
-  a {{ color: var(--p-link); }}
-</style></head><body>__HELP_HTML__</body></html>`;
-  frame.srcdoc = helpTemplate.replace('__HELP_HTML__', help_js);
+  // Кнопка «ℹ️ Опис» показує початкову сторінку (окремих сторінок опису немає)
+  frame.srcdoc = WELCOME_HTML;
   document.getElementById('ftText').textContent = '📖 Опис програми';
   document.getElementById('ftOpen').classList.add('hidden');
-  // Синхронізуємо тему iframe
-  setTimeout(() => syncIframeTheme(), 50);
+  setTimeout(() => syncIframeTheme(), 50);   // синхронізуємо тему iframe
 }});
 
 // Тема в прев'ю: цикл auto → light → dark → auto
@@ -1796,15 +1703,6 @@ def main() -> int:
         print(f"ПОМИЛКА: папку не знайдено: {BASE}", file=sys.stderr)
         return 1
 
-    # Завантажити HELP_HTML — використовуємо full markdown для коректного рендеру
-    global HELP_HTML
-    if HELP_MD_PATH.exists():
-        try:
-            md_text = HELP_MD_PATH.read_text(encoding="utf-8")
-            HELP_HTML = markdown.markdown(md_text, extensions=["tables", "fenced_code", "nl2br"])
-        except Exception:
-            pass
-
     print(f"Сканування: {BASE} ...", flush=True)
     prewarm_office_exports(BASE)
     if "--prewarm" in sys.argv:
@@ -1820,7 +1718,7 @@ def main() -> int:
     print(f"Знайдено файлів: {total}; прев’ю згенеровано: {len(previews)}",
           flush=True)
     out = BASE / OUT_NAME
-    html_text = make_html(tree, previews, total, HELP_HTML)
+    html_text = make_html(tree, previews, total)
     tmp = BASE / (OUT_NAME + ".tmp")     # атомарний запис: браузер ніколи
     tmp.write_text(html_text, encoding="utf-8")   # не побачить обірваної
     os.replace(tmp, out)                          # сторінки під час regen

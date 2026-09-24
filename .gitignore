@@ -1,10 +1,14 @@
 # ============================================================
-# viewer-school — .gitignore
+# Viewer-for-School — .gitignore
 # ============================================================
 # Згенеровані файли (не додаємо в репо)
 viewer.html
 viewer.html.tmp
 viewer_assets/
+
+# Артефакти збірки інсталятора
+installer/Output/
+dist/
 
 # Python
 __pycache__/
@@ -89,3 +93,9 @@ $RECYCLE.BIN/
 # macOS
 .DS_Store
 ._*
+
+# Винятки: іконки/малюнки інсталятора потрібні в репозиторії
+!installer/app.ico
+!installer/wizard.png
+!installer/wizard-small.png
+
