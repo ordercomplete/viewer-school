@@ -4,25 +4,51 @@ rem NOTE: keep this file ASCII-only (cmd parser); the picker gets Ukrainian text
 rem via -EncodedCommand (UTF-16LE base64), Python prints its own Ukrainian output.
 chcp 65001 >nul
 setlocal
-cd /d "%~dp0"
 
-rem Folder may come as the first argument (drop a folder onto the shortcut)...
+rem Search base: current working directory (no hardcoding of the script folder).
+set "SEARCH_DIR=."
+
+rem Materials folder: first argument (drop a folder onto the shortcut), otherwise
+rem the default 'I semestr' folder next to this script; if not found, try 'II semestr'.
 set "ROOT=%~1"
-if not "%ROOT%"=="" goto have_root
+if not "%ROOT%"=="" goto validate_root
 
-rem ...otherwise ask the user with a folder picker dialog
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -NonInteractive -EncodedCommand QQBkAGQALQBUAHkAcABlACAALQBBAHMAcwBlAG0AYgBsAHkATgBhAG0AZQAgAFMAeQBzAHQAZQBtAC4AVwBpAG4AZABvAHcAcwAuAEYAbwByAG0AcwAKACQAZAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBXAGkAbgBkAG8AdwBzAC4ARgBvAHIAbQBzAC4ARgBvAGwAZABlAHIAQgByAG8AdwBzAGUAcgBEAGkAYQBsAG8AZwAKACQAZAAuAEQAZQBzAGMAcgBpAHAAdABpAG8AbgAgAD0AIAAnAB4EMQQ1BEAEVgRCBEwEIABCBDUEOgRDBCAANwQgAD0EMAQyBEcEMAQ7BEwEPQQ4BDwEOAQgADwEMARCBDUEQARWBDAEOwQwBDwEOAQgACgAOgQ+BEAEVgQ9BEwEIABCBDUEOgQ4BCAANwQgAD8EQAQ1BDQEPAQ1BEIEMAQ8BDgEKQAnAAoAJABkAC4AUwBoAG8AdwBOAGUAdwBGAG8AbABkAGUAcgBCAHUAdAB0AG8AbgAgAD0AIAAkAGYAYQBsAHMAZQAKAGkAZgAgACgAJABkAC4AUwBoAG8AdwBEAGkAYQBsAG8AZwAoACkAIAAtAGUAcQAgAFsAUwB5AHMAdABlAG0ALgBXAGkAbgBkAG8AdwBzAC4ARgBvAHIAbQBzAC4ARABpAGEAbABvAGcAUgBlAHMAdQBsAHQAXQA6ADoATwBLACkAIAB7ACAAJABkAC4AUwBlAGwAZQBjAHQAZQBkAFAAYQB0AGgAIAB9AA==`) do set "ROOT=%%i"
-
-:have_root
-if "%ROOT%"=="" (
-    echo Cancelled: no folder selected.
-    pause
-    exit /b 1
+set "ROOT=%SEARCH_DIR%\I semestr"
+if exist "%ROOT%\" (
+    goto validate_root
 )
+
+set "ROOT=%SEARCH_DIR%\II semestr"
+if exist "%ROOT%\" (
+    goto validate_root
+)
+
+rem Neither semester folder found - show clear error with what was searched
+rem (so the user sees exactly which path was tried).
+echo.
+echo ERROR: materials folder not found.
+echo   Searched base: "%SEARCH_DIR%"
+echo   Folders checked:
+echo     "I semestr" = not found
+echo     "II semestr" = not found
+echo   You can:
+echo     - place the folder in the current directory and name it 'I semestr' or 'II semestr'
+echo     - or pass the full path as an argument: generate_for.bat "D:\path\to\your\folder"
+echo.
+pause
+exit /b 1
+
+:validate_root
 rem Strip a trailing backslash (see start_viewer.bat for the reason)
-if "%ROOT:~-1%"=="\" if not "%ROOT:~1,1%"==":" set "ROOT=%ROOT:~0,-1%"
-if not exist "%ROOT%\" (
-    echo ERROR: folder not found: "%ROOT%"
+if "%ROOT:~-1%"=="\\" if not "%ROOT:~1,1%"==":" set "ROOT=%ROOT:~0,-1%"
+if not exist "%ROOT%\\" (
+    echo.
+    echo ERROR: materials folder not found.
+    echo   Searched: "%ROOT%"
+    echo   Expected: a folder named "I semestr" or "II semestr" next to generate_for.bat
+    echo   (the one you moved the main content into).
+    echo   Check the folder name - it must be exactly 'I semestr' or 'II semestr'.
+    echo.
     pause
     exit /b 1
 )
@@ -49,5 +75,5 @@ python "%~dp0generate_viewer.py" "%ROOT%" || (
     exit /b 1
 )
 
-echo Done: "%ROOT%\viewer.html"
+echo Done: "%ROOT%\\viewer.html"
 pause

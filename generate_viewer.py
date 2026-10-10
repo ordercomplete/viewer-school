@@ -1007,7 +1007,7 @@ def welcome_doc() -> str:
     return wrap_doc("Ласкаво просимо", f"""
     <div class="card">
       <div class="card-icon">📚</div>
-      <h2>Viewer-for-School — навчальні матеріали 11-Д</h2>
+      <h2>Viewer-for-School — навчальні матеріали</h2>
       <p>Оберіть файл зліва у дереві — його вміст відкриється у цьому фреймі.</p>
       <ul>
         <li>📝 <b>.md</b> — рендериться з форматуванням;</li>
